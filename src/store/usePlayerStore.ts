@@ -574,13 +574,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
         set({ searchResults: tracks, searchWarnings: warnings, isSearching: false, searchHistory: updatedHistory });
 
-        // 依目前的來源分頁決定要自動播放的清單；該分頁無結果時改用全部結果
-        const filtered = filterBySource(tracks, get().sourceFilter);
-        const playable = filtered.length > 0 ? filtered : tracks;
-        if (playable.length > 0) {
+        // 搜尋完成後直接選第一首播放
+        if (tracks.length > 0) {
+          const firstTrack = tracks[0];
           consecutiveErrors = 0;
-          set({ queue: playable, currentIndex: 0 });
-          startTrack(playable[0]);
+          set({ queue: tracks, currentIndex: 0 });
+          startTrack(firstTrack);
+          get().showToast(`正在播放第一首：《${firstTrack.title}》`);
+        } else {
+          get().showToast('查無相符歌曲，請更換關鍵字再試');
         }
       } catch (err) {
         console.error('搜尋失敗:', err);
