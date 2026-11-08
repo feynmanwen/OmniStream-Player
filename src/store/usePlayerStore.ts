@@ -132,6 +132,7 @@ interface PlayerState {
   addTrackToPlaylist: (playlistId: string, track: Track) => void;
   removeTrackFromPlaylist: (playlistId: string, trackId: string) => void;
   setActivePlaylistId: (id: string | null) => void;
+  generateRandomFavoritesPlaylist: () => Promise<Playlist | null>;
 
   setSearchQuery: (query: string) => void;
   searchAndAutoplay: (query: string) => Promise<void>;
@@ -394,6 +395,68 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     setActivePlaylistId: (id) => set({ activePlaylistId: id }),
+
+    generateRandomFavoritesPlaylist: async () => {
+      const { favorites, historyTracks, playlists, searchResults, currentUser } = get();
+
+      // 彙整使用者喜好的候選曲庫（優先權：我的喜愛 -> 播放歷史 -> 現有歌單歌曲 -> 目前推薦/搜尋曲目）
+      const candidateMap = new Map<string, Track>();
+
+      favorites.forEach((t) => candidateMap.set(t.id, t));
+      historyTracks.forEach((t) => {
+        if (!candidateMap.has(t.id)) candidateMap.set(t.id, t);
+      });
+      playlists.forEach((pl) => {
+        pl.tracks.forEach((t) => {
+          if (!candidateMap.has(t.id)) candidateMap.set(t.id, t);
+        });
+      });
+      searchResults.forEach((t) => {
+        if (!candidateMap.has(t.id)) candidateMap.set(t.id, t);
+      });
+
+      const allCandidates = Array.from(candidateMap.values());
+
+      if (allCandidates.length === 0) {
+        get().showToast('曲庫暫無歌曲，請先探索或播放一些歌曲！');
+        return null;
+      }
+
+      // 洗牌演算法 (Fisher-Yates Shuffle)
+      const shuffled = [...allCandidates];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      // 挑選 10 首 (若曲庫總數不足 10 首則取全部)
+      const selectedTracks = shuffled.slice(0, 10);
+
+      // 取得今天日期字串 (例如 "2026/11/08")
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const dateStr = `${year}/${month}/${day}`;
+
+      const playlistTitle = `${dateStr} 隨機心選推薦`;
+      const description = `依據 ${currentUser.displayName} 的聆聽偏好與收藏智慧挑選的 10 首精選曲目`;
+
+      const newPlaylist: Playlist = {
+        id: `pl_random_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        name: playlistTitle,
+        description,
+        createdAt: Date.now(),
+        tracks: selectedTracks,
+      };
+
+      const updated = [newPlaylist, ...playlists];
+      writeUserStorage(currentUser, KEY_PLAYLISTS, JSON.stringify(updated));
+      set({ playlists: updated, activePlaylistId: newPlaylist.id });
+      get().showToast(`已建立「${playlistTitle}」共 ${selectedTracks.length} 首歌曲！`);
+
+      return newPlaylist;
+    },
 
     loadHistory: async () => {
       set({ isHistoryLoading: true });

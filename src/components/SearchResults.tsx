@@ -14,6 +14,7 @@ import {
   FolderPlus,
   Library,
   ArrowLeft,
+  Dices,
 } from 'lucide-react';
 import { YoutubeIcon } from './icons/YoutubeIcon';
 import { usePlayerStore, filterBySource } from '../store/usePlayerStore';
@@ -49,6 +50,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
     deletePlaylist,
     clearPlaylistTracks,
     clearAllPlaylists,
+    generateRandomFavoritesPlaylist,
     removeTrackFromPlaylist,
     playTrack,
     playList,
@@ -223,6 +225,16 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
         <div className="flex items-center gap-2.5 flex-wrap">
           {activeTab === 'playlists' && !activePlaylist && (
             <>
+              {/* 智慧隨機歌單按鈕 */}
+              <button
+                onClick={() => generateRandomFavoritesPlaylist()}
+                className="px-4 py-2 rounded-full bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-600 hover:opacity-95 active:scale-95 text-white text-xs font-semibold shadow-lg shadow-purple-600/30 flex items-center gap-1.5 transition-all cursor-pointer border border-white/20"
+                title="依照您的喜好自動挑選 10 首歌並以今日日期建立新歌單"
+              >
+                <Dices className="w-3.5 h-3.5" />
+                <span>隨機心選歌單</span>
+              </button>
+
               <button
                 onClick={() => onOpenCreatePlaylist?.()}
                 className="px-4 py-2 rounded-full bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-xs font-semibold shadow-lg shadow-purple-600/25 flex items-center gap-2 transition-all cursor-pointer"
@@ -352,13 +364,22 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
               <p className="text-xs text-neutral-400 max-w-sm mb-5">
                 為 {currentUser.displayName} 建立第一個專屬歌單，收納您最愛的歌曲！
               </p>
-              <button
-                onClick={() => onOpenCreatePlaylist?.()}
-                className="px-5 py-2.5 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-600/30 flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <FolderPlus className="w-4 h-4" />
-                <span>立即建立歌單</span>
-              </button>
+              <div className="flex items-center gap-3 flex-wrap justify-center">
+                <button
+                  onClick={() => generateRandomFavoritesPlaylist()}
+                  className="px-5 py-2.5 rounded-full bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-semibold shadow-lg shadow-purple-600/30 flex items-center gap-2 transition-all cursor-pointer border border-white/20"
+                >
+                  <Dices className="w-4 h-4" />
+                  <span>隨機心選歌單 (挑選 10 首)</span>
+                </button>
+                <button
+                  onClick={() => onOpenCreatePlaylist?.()}
+                  className="px-5 py-2.5 rounded-full apple-pill text-neutral-200 hover:text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <FolderPlus className="w-4 h-4" />
+                  <span>自訂建立歌單</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
