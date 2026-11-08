@@ -625,18 +625,18 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
                       {track.source !== 'youtube' && !track.isOfflineAvailable && (
                         <button
                           onClick={() => cacheTrackAudio(track)}
-                          className="p-1.5 rounded-full text-neutral-400 hover:text-emerald-400 hover:bg-white/10 transition-all cursor-pointer"
+                          className="p-2 sm:p-1.5 rounded-full text-neutral-400 hover:text-emerald-400 hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
                           title="手動下載離線快取"
                         >
-                          <HardDriveDownload className="w-3.5 h-3.5" />
+                          <HardDriveDownload className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                         </button>
                       )}
                       <button
                         onClick={() => deleteHistoryTrack(track.id)}
-                        className="p-1.5 rounded-full text-neutral-400 hover:text-rose-400 hover:bg-white/10 transition-all cursor-pointer"
+                        className="p-2 sm:p-1.5 rounded-full text-neutral-400 hover:text-rose-400 hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
                         title="從歷史記錄移除"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                       </button>
                     </>
                   ) : null}
@@ -645,10 +645,10 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
                   {activeTab === 'playlists' && activePlaylist ? (
                     <button
                       onClick={() => removeTrackFromPlaylist(activePlaylist.id, track.id)}
-                      className="p-1.5 rounded-full text-neutral-400 hover:text-rose-400 hover:bg-white/10 transition-all cursor-pointer"
+                      className="p-2 sm:p-1.5 rounded-full text-neutral-400 hover:text-rose-400 hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
                       title="從此歌單移除"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                     </button>
                   ) : null}
 
@@ -656,37 +656,37 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
                   {onOpenAddToPlaylist && (
                     <button
                       onClick={() => onOpenAddToPlaylist(track)}
-                      className="p-1.5 rounded-full text-neutral-400 hover:text-purple-400 hover:bg-white/10 transition-all cursor-pointer"
+                      className="p-2 sm:p-1.5 rounded-full text-neutral-400 hover:text-purple-400 hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
                       title="加入自訂歌單"
                     >
-                      <FolderPlus className="w-3.5 h-3.5" />
+                      <FolderPlus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                     </button>
                   )}
 
                   {/* 加入待播清單 */}
                   <button
                     onClick={() => addToQueue(track)}
-                    className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                    className={`p-2 sm:p-1.5 rounded-full active:scale-95 transition-all cursor-pointer ${
                       queued
                         ? 'text-emerald-400 bg-emerald-500/10'
                         : 'text-neutral-400 hover:text-white hover:bg-white/10'
                     }`}
                     title={queued ? '已在待播中' : '加入待播清單'}
                   >
-                    {queued ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                    {queued ? <Check className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> : <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />}
                   </button>
 
                   {/* 喜愛 */}
                   <button
                     onClick={() => toggleFavorite(track)}
-                    className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                    className={`p-2 sm:p-1.5 rounded-full active:scale-95 transition-all cursor-pointer ${
                       favorite
                         ? 'text-[#fa2d48] bg-[#fa2d48]/10'
                         : 'text-neutral-400 hover:text-[#fa2d48] hover:bg-white/10'
                     }`}
                     title={favorite ? '取消喜愛' : '加入喜愛'}
                   >
-                    <Heart className={`w-3.5 h-3.5 ${favorite ? 'fill-current' : ''}`} />
+                    <Heart className={`w-4 h-4 sm:w-3.5 sm:h-3.5 ${favorite ? 'fill-current' : ''}`} />
                   </button>
                 </div>
               </div>

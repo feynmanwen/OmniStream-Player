@@ -62,30 +62,30 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-30 w-full apple-header transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col gap-3">
-        {/* 上層：品牌 + 搜尋欄 + 系統操作 */}
-        <div className="flex items-center justify-between gap-3 sm:gap-6">
+      <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex flex-col gap-2.5 sm:gap-3">
+        {/* 第一行 (行動版) / 主要頂欄 (桌機版)：品牌 + 操作按鈕 (桌機版包含搜尋列) */}
+        <div className="flex items-center justify-between gap-2 sm:gap-6">
           {/* Apple Music 風格品牌標誌 */}
           <div
             onClick={() => setActiveTab('search')}
-            className="flex items-center gap-2.5 cursor-pointer select-none group shrink-0"
+            className="flex items-center gap-2 cursor-pointer select-none group shrink-0"
           >
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-b from-[#fa2d48] to-[#d61933] flex items-center justify-center shadow-lg shadow-[#fa2d48]/25 group-hover:scale-105 transition-transform">
-              <Music2 className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-gradient-to-b from-[#fa2d48] to-[#d61933] flex items-center justify-center shadow-lg shadow-[#fa2d48]/25 group-hover:scale-105 transition-transform">
+              <Music2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
-            <div className="hidden sm:flex flex-col">
-              <span className="text-[17px] font-semibold text-white tracking-tight leading-tight">
+            <div className="flex flex-col">
+              <span className="text-[15px] sm:text-[17px] font-bold text-white tracking-tight leading-tight">
                 音樂
               </span>
-              <span className="text-[10px] text-neutral-400 font-medium tracking-wide">
+              <span className="text-[9px] sm:text-[10px] text-neutral-400 font-medium tracking-wide">
                 OmniStream
               </span>
             </div>
           </div>
 
-          {/* Apple 極簡風格搜尋框 */}
-          <form onSubmit={handleSearchSubmit} className="flex-1 max-w-xl relative">
-            <div className="relative flex items-center">
+          {/* 桌機版搜尋框 (大螢幕 inline，手機版隱藏並移至第二行) */}
+          <form onSubmit={handleSearchSubmit} className="hidden md:flex flex-1 max-w-md lg:max-w-lg relative">
+            <div className="relative flex items-center w-full">
               <div className="absolute left-3.5 pointer-events-none text-neutral-400">
                 {isSearching ? (
                   <Loader2 className="w-4 h-4 animate-spin text-[#fa2d48]" />
@@ -112,7 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </form>
 
           {/* 右側按鈕：使用者頭像 / 歌單 / 歷史暫存 / 收藏 / 待播清單 / 設定 */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* 播放清單按鈕 */}
             <button
               onClick={() => setActiveTab(activeTab === 'playlists' ? 'search' : 'playlists')}
@@ -124,9 +124,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="個人自訂播放清單"
             >
               <Library className="w-4 h-4" />
-              <span className="hidden md:inline">歌單</span>
+              <span className="hidden lg:inline">歌單</span>
               {playlists.length > 0 && (
-                <span className="text-[11px] text-neutral-400 font-mono">
+                <span className="text-[10px] sm:text-[11px] text-neutral-400 font-mono">
                   {playlists.length}
                 </span>
               )}
@@ -143,9 +143,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="播放歷史 (離線暫存清單)"
             >
               <History className="w-4 h-4" />
-              <span className="hidden md:inline">歷史/離線</span>
+              <span className="hidden lg:inline">離線</span>
               {historyTracks.length > 0 && (
-                <span className="text-[11px] text-neutral-400 font-mono">
+                <span className="text-[10px] sm:text-[11px] text-neutral-400 font-mono">
                   {historyTracks.length}
                 </span>
               )}
@@ -162,9 +162,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="已喜愛的曲目"
             >
               <Heart className={`w-4 h-4 ${activeTab === 'favorites' ? 'fill-current' : ''}`} />
-              <span className="hidden md:inline">喜愛</span>
+              <span className="hidden lg:inline">喜愛</span>
               {favorites.length > 0 && (
-                <span className="text-[11px] text-neutral-400 font-mono">
+                <span className="text-[10px] sm:text-[11px] text-neutral-400 font-mono">
                   {favorites.length}
                 </span>
               )}
@@ -181,9 +181,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="待播清單"
             >
               <ListMusic className="w-4 h-4" />
-              <span className="hidden md:inline">佇列</span>
+              <span className="hidden lg:inline">佇列</span>
               {queue.length > 0 && (
-                <span className="text-[11px] text-neutral-400 font-mono">
+                <span className="text-[10px] sm:text-[11px] text-neutral-400 font-mono">
                   {queue.length}
                 </span>
               )}
@@ -192,7 +192,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* 使用者登入/切換按鈕 */}
             <button
               onClick={() => setIsAuthModalOpen(true)}
-              className="p-1.5 sm:px-2.5 sm:py-1 rounded-full apple-pill text-neutral-300 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer border border-white/10"
+              className="p-1 sm:px-2.5 sm:py-1 rounded-full apple-pill text-neutral-300 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer border border-white/10"
               title={`目前使用者：${currentUser.displayName} (點擊切換)`}
             >
               <div
@@ -201,7 +201,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 {currentUser.displayName.charAt(0)}
               </div>
-              <span className="hidden lg:inline text-xs font-medium truncate max-w-[70px]">
+              <span className="hidden md:inline text-xs font-medium truncate max-w-[70px]">
                 {currentUser.displayName}
               </span>
             </button>
@@ -220,6 +220,36 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
           </div>
+        </div>
+
+        {/* 手機版專屬第二行：寬敞全幅搜尋欄 (打字清晰不擁擠) */}
+        <div className="md:hidden w-full">
+          <form onSubmit={handleSearchSubmit} className="w-full relative">
+            <div className="relative flex items-center w-full shadow-inner">
+              <div className="absolute left-3.5 pointer-events-none text-neutral-400">
+                {isSearching ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#fa2d48]" />
+                ) : (
+                  <Search className="w-4 h-4" />
+                )}
+              </div>
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="搜尋歌曲、藝人或專輯名稱..."
+                className="w-full pl-10 pr-22 py-2.5 bg-white/[0.08] focus:bg-white/[0.14] text-[14px] text-white placeholder-neutral-400 rounded-2xl border border-white/[0.12] focus:border-[#fa2d48]/50 transition-all outline-none"
+              />
+              <button
+                type="submit"
+                disabled={isSearching || !inputValue.trim()}
+                className="absolute right-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-[#fa2d48] hover:bg-[#e0233d] active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white transition-all shadow-md flex items-center gap-1 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>動播</span>
+              </button>
+            </div>
+          </form>
         </div>
 
         {/* 下層：歌手推薦與分類標籤 (Apple Music 膠囊風格) */}
