@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Track, PlaybackMode, SourceFilter } from '../types/player';
+import { Track, PlaybackMode, SourceFilter, Playlist, UserAccount } from '../types/player';
 import { searchMediaTracks, fetchTrendingTracks } from '../services/searchService';
 import {
   updateMediaSessionMetadata,
@@ -14,14 +14,25 @@ import {
   clearAllHistory,
   cacheAudioBlob
 } from '../services/offlineCache';
+import {
+  getSavedActiveUser,
+  saveActiveUser,
+  verifyCredentials,
+} from '../services/authService';
 
-// 本地存儲鍵名
-const STORAGE_KEY_FAVORITES = 'omnistream_favorites_v1';
-const STORAGE_KEY_HISTORY = 'omnistream_search_history_v1';
-const STORAGE_KEY_VOLUME = 'omnistream_volume_v1';
-const STORAGE_KEY_FULL_ONLY = 'omnistream_full_only_v1';
-const STORAGE_KEY_YT_KEY = 'omnistream_youtube_api_key_v1';
-const STORAGE_KEY_SOURCE_FILTER = 'omnistream_source_filter_v1';
+// 本地存儲鍵名前綴 (支援依使用者名稱隔離)
+function getUserStorageKey(user: UserAccount | null, key: string): string {
+  const prefix = user ? `omnistream_user_${user.username.toLowerCase()}_` : 'omnistream_guest_';
+  return `${prefix}${key}`;
+}
+
+const KEY_FAVORITES = 'favorites_v1';
+const KEY_HISTORY = 'search_history_v1';
+const KEY_VOLUME = 'volume_v1';
+const KEY_FULL_ONLY = 'full_only_v1';
+const KEY_YT_KEY = 'youtube_api_key_v1';
+const KEY_SOURCE_FILTER = 'source_filter_v1';
+const KEY_PLAYLISTS = 'playlists_v1';
 
 // 系統內建預設 YouTube Data API v3 金鑰 (若 .env 未指定則使用此金鑰)
 const BUILTIN_YOUTUBE_API_KEY = 'AIzaSyCRMJipqFFFE-nc0f0VZm3Nwfp_UbcWGu4';
@@ -29,16 +40,34 @@ const BUILTIN_YOUTUBE_API_KEY = 'AIzaSyCRMJipqFFFE-nc0f0VZm3Nwfp_UbcWGu4';
 /** 系統內建或 .env 設定的 YouTube 金鑰 (優先於使用者在設定面板輸入的金鑰) */
 export const ENV_YOUTUBE_API_KEY = (import.meta.env.VITE_YOUTUBE_API_KEY || BUILTIN_YOUTUBE_API_KEY).trim();
 
-function readStorage<T>(key: string, fallback: T, parse: (raw: string) => T): T {
+function readUserStorage<T>(user: UserAccount | null, key: string, fallback: T, parse: (raw: string) => T): T {
   try {
-    const raw = localStorage.getItem(key);
+    const fullKey = getUserStorageKey(user, key);
+    const raw = localStorage.getItem(fullKey);
     return raw === null ? fallback : parse(raw);
   } catch {
     return fallback;
   }
 }
 
-const initialVolume = readStorage(STORAGE_KEY_VOLUME, 0.85, parseFloat);
+function writeUserStorage(user: UserAccount | null, key: string, value: string): void {
+  try {
+    const fullKey = getUserStorageKey(user, key);
+    localStorage.setItem(fullKey, value);
+  } catch (e) {
+    console.warn('寫入使用者資料庫失敗:', e);
+  }
+}
+
+// 取得記住的登入使用者，若無則預設為第一位使用者 Feynman (自動記住登入)
+const initialUser: UserAccount = getSavedActiveUser() || {
+  username: 'Feynman',
+  displayName: 'Feynman',
+  avatar: '#fa2d48',
+};
+saveActiveUser(initialUser);
+
+const initialVolume = readUserStorage(initialUser, KEY_VOLUME, 0.85, parseFloat);
 playback.setVolume(initialVolume);
 
 export function filterBySource(tracks: Track[], filter: SourceFilter): Track[] {
@@ -80,10 +109,27 @@ interface PlayerState {
   isFullscreenPlayerOpen: boolean;
   isSettingsOpen: boolean;
 
+  // 使用者帳號與自訂歌單
+  currentUser: UserAccount;
+  isAuthModalOpen: boolean;
+  playlists: Playlist[];
+  activePlaylistId: string | null;
+
   historyTracks: Track[];
   isHistoryLoading: boolean;
 
   // 動作 (Actions)
+  login: (username: string, pin: string) => boolean;
+  logout: () => void;
+  setIsAuthModalOpen: (open: boolean) => void;
+
+  // 播放清單動作
+  createPlaylist: (name: string, description?: string) => Playlist;
+  deletePlaylist: (playlistId: string) => void;
+  addTrackToPlaylist: (playlistId: string, track: Track) => void;
+  removeTrackFromPlaylist: (playlistId: string, trackId: string) => void;
+  setActivePlaylistId: (id: string | null) => void;
+
   setSearchQuery: (query: string) => void;
   searchAndAutoplay: (query: string) => Promise<void>;
   loadTrending: () => Promise<void>;
@@ -179,15 +225,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     playbackRate: 1.0,
     playbackMode: 'repeat-all',
 
+    // 使用者帳號與播放清單
+    currentUser: initialUser,
+    isAuthModalOpen: false,
+    playlists: readUserStorage<Playlist[]>(initialUser, KEY_PLAYLISTS, [], JSON.parse),
+    activePlaylistId: null,
+
     searchQuery: '',
     searchResults: [],
     isSearching: false,
-    searchHistory: readStorage(STORAGE_KEY_HISTORY, ['周杰倫', '周深', '張雨生', '毛不易'], JSON.parse),
+    searchHistory: readUserStorage(initialUser, KEY_HISTORY, ['周杰倫', '周深', '張雨生', '毛不易'], JSON.parse),
     searchWarnings: [],
-    favorites: readStorage<Track[]>(STORAGE_KEY_FAVORITES, [], JSON.parse),
-    fullOnly: readStorage(STORAGE_KEY_FULL_ONLY, true, (raw) => raw !== 'false'),
-    userYoutubeApiKey: readStorage(STORAGE_KEY_YT_KEY, '', (raw) => raw),
-    sourceFilter: readStorage<SourceFilter>(STORAGE_KEY_SOURCE_FILTER, 'all', (raw) => raw as SourceFilter),
+    favorites: readUserStorage<Track[]>(initialUser, KEY_FAVORITES, [], JSON.parse),
+    fullOnly: readUserStorage(initialUser, KEY_FULL_ONLY, true, (raw) => raw !== 'false'),
+    userYoutubeApiKey: readUserStorage(initialUser, KEY_YT_KEY, '', (raw) => raw),
+    sourceFilter: readUserStorage<SourceFilter>(initialUser, KEY_SOURCE_FILTER, 'all', (raw) => raw as SourceFilter),
     toast: null,
 
     historyTracks: [],
@@ -196,6 +248,121 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     isQueueOpen: false,
     isFullscreenPlayerOpen: false,
     isSettingsOpen: false,
+
+    login: (username: string, pin: string) => {
+      const verified = verifyCredentials(username, pin);
+      if (!verified) {
+        get().showToast('帳號或密碼錯誤，請重新確認');
+        return false;
+      }
+
+      saveActiveUser(verified);
+
+      // 載入該使用者的專屬偏好設定與播放清單
+      const userVolume = readUserStorage(verified, KEY_VOLUME, 0.85, parseFloat);
+      const userFavs = readUserStorage<Track[]>(verified, KEY_FAVORITES, [], JSON.parse);
+      const userPlaylists = readUserStorage<Playlist[]>(verified, KEY_PLAYLISTS, [], JSON.parse);
+      const userFullOnly = readUserStorage(verified, KEY_FULL_ONLY, true, (raw) => raw !== 'false');
+      const userKey = readUserStorage(verified, KEY_YT_KEY, '', (raw) => raw);
+      const userFilter = readUserStorage<SourceFilter>(verified, KEY_SOURCE_FILTER, 'all', (raw) => raw as SourceFilter);
+      const userHist = readUserStorage(verified, KEY_HISTORY, ['周杰倫', '周深', '張雨生', '毛不易'], JSON.parse);
+
+      playback.setVolume(userVolume);
+
+      set({
+        currentUser: verified,
+        isAuthModalOpen: false,
+        volume: userVolume,
+        favorites: userFavs,
+        playlists: userPlaylists,
+        fullOnly: userFullOnly,
+        userYoutubeApiKey: userKey,
+        sourceFilter: userFilter,
+        searchHistory: userHist,
+        activePlaylistId: null,
+      });
+
+      get().showToast(`歡迎回來，${verified.displayName}！已載入您的專屬設定與歌單`);
+      return true;
+    },
+
+    logout: () => {
+      saveActiveUser(null);
+      get().showToast('已登出');
+      // 切換回訪客或第一位預設帳號
+      const fallbackUser: UserAccount = {
+        username: 'Feynman',
+        displayName: 'Feynman',
+        avatar: '#fa2d48',
+      };
+      set({ currentUser: fallbackUser });
+    },
+
+    setIsAuthModalOpen: (open) => set({ isAuthModalOpen: open }),
+
+    // 播放清單操作
+    createPlaylist: (name: string, description?: string) => {
+      const cleanName = name.trim();
+      const newPlaylist: Playlist = {
+        id: `pl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        name: cleanName || '未命名歌單',
+        description: description?.trim() || '',
+        createdAt: Date.now(),
+        tracks: [],
+      };
+
+      const { playlists, currentUser } = get();
+      const updated = [newPlaylist, ...playlists];
+      writeUserStorage(currentUser, KEY_PLAYLISTS, JSON.stringify(updated));
+      set({ playlists: updated });
+      get().showToast(`已建立播放清單「${newPlaylist.name}」`);
+      return newPlaylist;
+    },
+
+    deletePlaylist: (playlistId: string) => {
+      const { playlists, currentUser, activePlaylistId } = get();
+      const updated = playlists.filter((pl) => pl.id !== playlistId);
+      writeUserStorage(currentUser, KEY_PLAYLISTS, JSON.stringify(updated));
+      set({
+        playlists: updated,
+        activePlaylistId: activePlaylistId === playlistId ? null : activePlaylistId,
+      });
+      get().showToast('已刪除播放清單');
+    },
+
+    addTrackToPlaylist: (playlistId: string, track: Track) => {
+      const { playlists, currentUser } = get();
+      let addedTitle = '';
+      const updated = playlists.map((pl) => {
+        if (pl.id === playlistId) {
+          addedTitle = pl.name;
+          const exists = pl.tracks.some((t) => t.id === track.id);
+          if (exists) return pl;
+          return { ...pl, tracks: [track, ...pl.tracks] };
+        }
+        return pl;
+      });
+
+      writeUserStorage(currentUser, KEY_PLAYLISTS, JSON.stringify(updated));
+      set({ playlists: updated });
+      get().showToast(`已將《${track.title}》加入歌單「${addedTitle}」`);
+    },
+
+    removeTrackFromPlaylist: (playlistId: string, trackId: string) => {
+      const { playlists, currentUser } = get();
+      const updated = playlists.map((pl) => {
+        if (pl.id === playlistId) {
+          return { ...pl, tracks: pl.tracks.filter((t) => t.id !== trackId) };
+        }
+        return pl;
+      });
+
+      writeUserStorage(currentUser, KEY_PLAYLISTS, JSON.stringify(updated));
+      set({ playlists: updated });
+      get().showToast('已從歌單移除曲目');
+    },
+
+    setActivePlaylistId: (id) => set({ activePlaylistId: id }),
 
     loadHistory: async () => {
       set({ isHistoryLoading: true });
@@ -239,19 +406,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     setSearchQuery: (query) => set({ searchQuery: query }),
 
     setFullOnly: (fullOnly) => {
-      localStorage.setItem(STORAGE_KEY_FULL_ONLY, String(fullOnly));
+      writeUserStorage(get().currentUser, KEY_FULL_ONLY, String(fullOnly));
       set({ fullOnly });
     },
 
     setUserYoutubeApiKey: (key) => {
       const clean = key.trim();
-      if (clean) localStorage.setItem(STORAGE_KEY_YT_KEY, clean);
-      else localStorage.removeItem(STORAGE_KEY_YT_KEY);
+      writeUserStorage(get().currentUser, KEY_YT_KEY, clean);
       set({ userYoutubeApiKey: clean });
     },
 
     setSourceFilter: (filter) => {
-      localStorage.setItem(STORAGE_KEY_SOURCE_FILTER, filter);
+      writeUserStorage(get().currentUser, KEY_SOURCE_FILTER, filter);
       set({ sourceFilter: filter });
     },
 
@@ -304,7 +470,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
         const currentHistory = get().searchHistory.filter((item) => item.toLowerCase() !== cleanQuery.toLowerCase());
         const updatedHistory = [cleanQuery, ...currentHistory].slice(0, 10);
-        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(updatedHistory));
+        writeUserStorage(get().currentUser, KEY_HISTORY, JSON.stringify(updatedHistory));
 
         set({ searchResults: tracks, searchWarnings: warnings, isSearching: false, searchHistory: updatedHistory });
 
@@ -407,7 +573,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const safeVol = Math.max(0, Math.min(1, volume));
       playback.setVolume(safeVol);
       playback.setMuted(false);
-      localStorage.setItem(STORAGE_KEY_VOLUME, safeVol.toString());
+      writeUserStorage(get().currentUser, KEY_VOLUME, safeVol.toString());
       set({ volume: safeVol, isMuted: false });
     },
 
@@ -447,10 +613,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     toggleFavorite: (track: Track) => {
-      const { favorites } = get();
+      const { favorites, currentUser } = get();
       const exists = favorites.some((t) => t.id === track.id);
       const updated = exists ? favorites.filter((t) => t.id !== track.id) : [track, ...favorites];
-      localStorage.setItem(STORAGE_KEY_FAVORITES, JSON.stringify(updated));
+      writeUserStorage(currentUser, KEY_FAVORITES, JSON.stringify(updated));
       set({ favorites: updated });
     },
 

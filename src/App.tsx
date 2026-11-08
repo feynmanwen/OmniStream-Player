@@ -5,13 +5,19 @@ import { PlayerBar } from './components/PlayerBar';
 import { QueueDrawer } from './components/QueueDrawer';
 import { FullscreenPlayerModal } from './components/FullscreenPlayerModal';
 import { SettingsModal } from './components/SettingsModal';
+import { AuthModal } from './components/AuthModal';
+import { PlaylistModal } from './components/PlaylistModal';
 import { AudioEngine } from './components/AudioEngine';
 import { YouTubeEngine } from './components/YouTubeEngine';
 import { usePlayerStore } from './store/usePlayerStore';
+import { Track } from './types/player';
 import { Info } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<MainNavTab>('search');
+  const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
+  const [trackToAdd, setTrackToAdd] = useState<Track | null>(null);
+
   const {
     togglePlay,
     nextTrack,
@@ -80,6 +86,14 @@ export const App: React.FC = () => {
         <SearchResults
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          onOpenAddToPlaylist={(track) => {
+            setTrackToAdd(track);
+            setIsPlaylistModalOpen(true);
+          }}
+          onOpenCreatePlaylist={() => {
+            setTrackToAdd(null);
+            setIsPlaylistModalOpen(true);
+          }}
         />
       </main>
 
@@ -94,6 +108,19 @@ export const App: React.FC = () => {
 
       {/* 設定與 YouTube 金鑰彈窗 */}
       <SettingsModal />
+
+      {/* 使用者登入與帳號切換彈窗 */}
+      <AuthModal />
+
+      {/* 自訂播放歌單建立與加入彈窗 */}
+      <PlaylistModal
+        isOpen={isPlaylistModalOpen}
+        onClose={() => {
+          setIsPlaylistModalOpen(false);
+          setTrackToAdd(null);
+        }}
+        trackToAdd={trackToAdd}
+      />
 
       {/* 全域 Toast 輕量通知 */}
       {toast && (

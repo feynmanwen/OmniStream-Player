@@ -1,16 +1,30 @@
 import React, { useState } from 'react';
-import { Search, Loader2, Music2, ListMusic, Heart, Settings, Sparkles, History } from 'lucide-react';
+import {
+  Search,
+  Loader2,
+  Music2,
+  ListMusic,
+  Heart,
+  Settings,
+  Sparkles,
+  History,
+  Library,
+} from 'lucide-react';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { FEATURED_ARTISTS, POPULAR_GENRES } from '../services/searchService';
 
-export type MainNavTab = 'search' | 'favorites' | 'history';
+export type MainNavTab = 'search' | 'playlists' | 'favorites' | 'history';
 
 interface NavbarProps {
   activeTab: MainNavTab;
   setActiveTab: (tab: MainNavTab) => void;
+  onOpenNewPlaylistModal?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  activeTab,
+  setActiveTab,
+}) => {
   const [inputValue, setInputValue] = useState('');
   const {
     isSearching,
@@ -18,6 +32,9 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     queue,
     favorites,
     historyTracks,
+    playlists,
+    currentUser,
+    setIsAuthModalOpen,
     isQueueOpen,
     setIsQueueOpen,
     fullOnly,
@@ -94,8 +111,27 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
             </div>
           </form>
 
-          {/* 右側按鈕：歷史暫存 / 收藏 / 待播清單 / 設定 */}
+          {/* 右側按鈕：使用者頭像 / 歌單 / 歷史暫存 / 收藏 / 待播清單 / 設定 */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* 播放清單按鈕 */}
+            <button
+              onClick={() => setActiveTab(activeTab === 'playlists' ? 'search' : 'playlists')}
+              className={`p-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'playlists'
+                  ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
+                  : 'apple-pill text-neutral-300 hover:text-white'
+              }`}
+              title="個人自訂播放清單"
+            >
+              <Library className="w-4 h-4" />
+              <span className="hidden md:inline">歌單</span>
+              {playlists.length > 0 && (
+                <span className="text-[11px] text-neutral-400 font-mono">
+                  {playlists.length}
+                </span>
+              )}
+            </button>
+
             {/* 歷史播放 (離線可用) */}
             <button
               onClick={() => setActiveTab(activeTab === 'history' ? 'search' : 'history')}
@@ -151,6 +187,23 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                   {queue.length}
                 </span>
               )}
+            </button>
+
+            {/* 使用者登入/切換按鈕 */}
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="p-1.5 sm:px-2.5 sm:py-1 rounded-full apple-pill text-neutral-300 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer border border-white/10"
+              title={`目前使用者：${currentUser.displayName} (點擊切換)`}
+            >
+              <div
+                className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] text-white shrink-0 shadow"
+                style={{ backgroundColor: currentUser.avatar || '#fa2d48' }}
+              >
+                {currentUser.displayName.charAt(0)}
+              </div>
+              <span className="hidden lg:inline text-xs font-medium truncate max-w-[70px]">
+                {currentUser.displayName}
+              </span>
             </button>
 
             {/* 設定按鈕 */}

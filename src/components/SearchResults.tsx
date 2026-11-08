@@ -11,6 +11,9 @@ import {
   History,
   Trash2,
   HardDriveDownload,
+  FolderPlus,
+  Library,
+  ArrowLeft,
 } from 'lucide-react';
 import { YoutubeIcon } from './icons/YoutubeIcon';
 import { usePlayerStore, filterBySource } from '../store/usePlayerStore';
@@ -20,10 +23,16 @@ import { MainNavTab } from './Navbar';
 
 interface SearchResultsProps {
   activeTab: MainNavTab;
-  setActiveTab: (tab: MainNavTab) => void;
+  setActiveTab?: (tab: MainNavTab) => void;
+  onOpenAddToPlaylist?: (track: Track) => void;
+  onOpenCreatePlaylist?: () => void;
 }
 
-export const SearchResults: React.FC<SearchResultsProps> = ({ activeTab }) => {
+export const SearchResults: React.FC<SearchResultsProps> = ({
+  activeTab,
+  onOpenAddToPlaylist,
+  onOpenCreatePlaylist,
+}) => {
   const {
     searchResults,
     searchQuery,
@@ -33,6 +42,11 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ activeTab }) => {
     isPlaying,
     favorites,
     historyTracks,
+    playlists,
+    activePlaylistId,
+    setActivePlaylistId,
+    deletePlaylist,
+    removeTrackFromPlaylist,
     playTrack,
     playList,
     addToQueue,
@@ -45,14 +59,19 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ activeTab }) => {
     searchWarnings,
     getYoutubeApiKey,
     setIsSettingsOpen,
+    currentUser,
   } = usePlayerStore();
 
   const currentTrack = queue[currentIndex] || null;
+  const activePlaylist = playlists.find((p) => p.id === activePlaylistId) || null;
+
   const baseTracks: Track[] =
     activeTab === 'favorites'
       ? favorites
       : activeTab === 'history'
       ? historyTracks
+      : activeTab === 'playlists' && activePlaylist
+      ? activePlaylist.tracks
       : searchResults;
 
   // 計算各來源數量
@@ -64,6 +83,8 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ activeTab }) => {
       ? favorites
       : activeTab === 'history'
       ? historyTracks
+      : activeTab === 'playlists' && activePlaylist
+      ? activePlaylist.tracks
       : filterBySource(baseTracks, sourceFilter);
   const hasYtKey = Boolean(getYoutubeApiKey());
 
@@ -120,8 +141,24 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ activeTab }) => {
       {/* Apple Music 風格大標題與操作控制項 */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 mb-6 pb-4 border-b border-white/[0.06]">
         <div>
+          {activeTab === 'playlists' && activePlaylist ? (
+            <button
+              onClick={() => setActivePlaylistId(null)}
+              className="inline-flex items-center gap-1.5 text-xs text-[#fa2d48] hover:underline mb-2 cursor-pointer font-medium"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              返回歌單列表
+            </button>
+          ) : null}
+
           <span className="text-[11px] font-semibold tracking-wider text-[#fa2d48] uppercase mb-1 block">
-            {activeTab === 'favorites' ? '個人收藏庫' : activeTab === 'history' ? '離線暫存庫' : '精選推薦'}
+            {activeTab === 'favorites'
+              ? '個人收藏庫'
+              : activeTab === 'history'
+              ? '離線暫存庫'
+              : activeTab === 'playlists'
+              ? `${currentUser.displayName} 的歌單`
+              : '精選推薦'}
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
             {activeTab === 'favorites' ? (
@@ -134,6 +171,18 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ activeTab }) => {
                 <History className="w-7 h-7 text-emerald-400" />
                 播放歷史與離線清單
               </>
+            ) : activeTab === 'playlists' ? (
+              activePlaylist ? (
+                <>
+                  <Library className="w-7 h-7 text-purple-400" />
+                  {activePlaylist.name}
+                </>
+              ) : (
+                <>
+                  <Library className="w-7 h-7 text-purple-400" />
+                  自訂播放歌單
+                </>
+              )
             ) : searchQuery ? (
               <>
                 <span>{searchQuery}</span>
@@ -147,6 +196,12 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ activeTab }) => {
           <p className="text-xs text-neutral-400 mt-1 font-normal flex items-center gap-2">
             {activeTab === 'history' ? (
               <span>播放過的歌曲會自動暫存於此，Audius 音訊會自動快取為本機離線檔案，無網路時亦可播放。</span>
+            ) : activeTab === 'playlists' ? (
+              activePlaylist ? (
+                <span>{activePlaylist.description || `包含 ${activePlaylist.tracks.length} 首自選曲目`}</span>
+              ) : (
+                <span>專屬 {currentUser.displayName} 的個性化歌單，資料獨立儲存並自動記住。</span>
+              )
             ) : isSearching ? (
               '正在連接音樂資料庫...'
             ) : (
@@ -155,35 +210,122 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ activeTab }) => {
           </p>
         </div>
 
-        {displayTracks.length > 0 && (
-          <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {activeTab === 'playlists' && !activePlaylist && (
             <button
-              onClick={handlePlayAll}
-              className="px-5 py-2 rounded-full bg-[#fa2d48] hover:bg-[#e0233d] active:scale-95 text-white text-xs font-semibold shadow-lg shadow-[#fa2d48]/25 flex items-center gap-2 transition-all cursor-pointer"
+              onClick={() => onOpenCreatePlaylist?.()}
+              className="px-4 py-2 rounded-full bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-xs font-semibold shadow-lg shadow-purple-600/25 flex items-center gap-2 transition-all cursor-pointer"
             >
-              <Play className="w-3.5 h-3.5 fill-white" />
-              <span>全部播放</span>
+              <FolderPlus className="w-3.5 h-3.5" />
+              <span>新建歌單</span>
             </button>
+          )}
+
+          {activeTab === 'playlists' && activePlaylist && (
             <button
-              onClick={handleAddAllToQueue}
-              className="px-4 py-2 rounded-full apple-pill text-neutral-200 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
+              onClick={() => {
+                if (window.confirm(`確定要刪除「${activePlaylist.name}」歌單嗎？`)) {
+                  deletePlaylist(activePlaylist.id);
+                }
+              }}
+              className="px-3.5 py-2 rounded-full apple-pill text-neutral-400 hover:text-rose-400 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>加入待播</span>
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>刪除此歌單</span>
             </button>
-            {activeTab === 'history' && (
+          )}
+
+          {displayTracks.length > 0 && (
+            <>
               <button
-                onClick={() => clearHistory()}
-                className="px-3.5 py-2 rounded-full apple-pill text-neutral-400 hover:text-rose-400 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
-                title="清空歷史記錄與離線快取"
+                onClick={handlePlayAll}
+                className="px-5 py-2 rounded-full bg-[#fa2d48] hover:bg-[#e0233d] active:scale-95 text-white text-xs font-semibold shadow-lg shadow-[#fa2d48]/25 flex items-center gap-2 transition-all cursor-pointer"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">清空歷史</span>
+                <Play className="w-3.5 h-3.5 fill-white" />
+                <span>全部播放</span>
               </button>
-            )}
-          </div>
-        )}
+              <button
+                onClick={handleAddAllToQueue}
+                className="px-4 py-2 rounded-full apple-pill text-neutral-200 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>加入待播</span>
+              </button>
+            </>
+          )}
+
+          {activeTab === 'history' && displayTracks.length > 0 && (
+            <button
+              onClick={() => clearHistory()}
+              className="px-3.5 py-2 rounded-full apple-pill text-neutral-400 hover:text-rose-400 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
+              title="清空歷史記錄與離線快取"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">清空歷史</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* 歌單總覽卡片網格 (當 activeTab === 'playlists' 且尚未選擇特定歌單) */}
+      {activeTab === 'playlists' && !activePlaylist && (
+        <div className="mb-10">
+          {playlists.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-16 h-16 rounded-3xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-4 shadow-xl">
+                <Library className="w-8 h-8" />
+              </div>
+              <h3 className="text-base font-semibold text-neutral-200 mb-1">
+                尚無任何自訂歌單
+              </h3>
+              <p className="text-xs text-neutral-400 max-w-sm mb-5">
+                為 {currentUser.displayName} 建立第一個專屬歌單，收納您最愛的歌曲！
+              </p>
+              <button
+                onClick={() => onOpenCreatePlaylist?.()}
+                className="px-5 py-2.5 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-600/30 flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <FolderPlus className="w-4 h-4" />
+                <span>立即建立歌單</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+              {playlists.map((playlist) => {
+                const cover = playlist.tracks[0]?.artwork || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop';
+                return (
+                  <div
+                    key={playlist.id}
+                    onClick={() => setActivePlaylistId(playlist.id)}
+                    className="group flex flex-col justify-between p-3.5 rounded-2xl apple-card cursor-pointer hover:border-purple-500/30 transition-all hover:scale-[1.02]"
+                  >
+                    <div className="relative aspect-square w-full rounded-xl overflow-hidden mb-3 bg-neutral-900 shadow-md">
+                      <img
+                        src={cover}
+                        alt={playlist.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-purple-600/90 text-white flex items-center justify-center shadow-lg opacity-80 group-hover:opacity-100 transition-opacity">
+                          <Library className="w-5 h-5" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-[14px] text-white truncate">
+                        {playlist.name}
+                      </h3>
+                      <p className="text-[12px] text-neutral-400 truncate mt-0.5">
+                        {playlist.tracks.length} 首歌曲
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Apple 膠囊分段控制器 (Segmented Control) */}
       {activeTab === 'search' && baseTracks.length > 0 && (
@@ -399,6 +541,28 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ activeTab }) => {
                       </button>
                     </>
                   ) : null}
+
+                  {/* 若在自訂歌單分頁中，提供從該歌單移除按鈕 */}
+                  {activeTab === 'playlists' && activePlaylist ? (
+                    <button
+                      onClick={() => removeTrackFromPlaylist(activePlaylist.id, track.id)}
+                      className="p-1.5 rounded-full text-neutral-400 hover:text-rose-400 hover:bg-white/10 transition-all cursor-pointer"
+                      title="從此歌單移除"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  ) : null}
+
+                  {/* 加入自訂歌單 */}
+                  {onOpenAddToPlaylist && (
+                    <button
+                      onClick={() => onOpenAddToPlaylist(track)}
+                      className="p-1.5 rounded-full text-neutral-400 hover:text-purple-400 hover:bg-white/10 transition-all cursor-pointer"
+                      title="加入自訂歌單"
+                    >
+                      <FolderPlus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
 
                   {/* 加入待播清單 */}
                   <button

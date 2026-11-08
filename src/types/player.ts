@@ -31,3 +31,26 @@ export interface GenreTag {
   icon?: string;
   description?: string;
 }
+
+export interface Playlist {
+  id: string;
+  name: string;
+  description?: string;
+  coverImage?: string;
+  createdAt: number;
+  tracks: Track[];
+}
+
+export interface UserAccount {
+  username: string;
+  displayName: string;
+  avatar?: string;
+}
+
+export interface UserSettings {
+  volume: number;
+  fullOnly: boolean;
+  userYoutubeApiKey: string;
+  sourceFilter: SourceFilter;
+  playbackMode: PlaybackMode;
+}
