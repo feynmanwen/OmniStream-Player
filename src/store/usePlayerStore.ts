@@ -1,7 +1,11 @@
 import { create } from 'zustand';
 import { Track, PlaybackMode, SourceFilter } from '../types/player';
 import { searchMediaTracks, fetchTrendingTracks } from '../services/searchService';
-import { updateMediaSessionMetadata } from '../utils/mediaSession';
+import {
+  updateMediaSessionMetadata,
+  updateMediaSessionPlaybackState,
+  updateMediaSessionPositionState
+} from '../utils/mediaSession';
 import { playback, setEngineListeners } from '../engine/playbackController';
 
 // 本地存儲鍵名
@@ -113,10 +117,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
   setEngineListeners({
     onPlayState: (playing) => {
       if (playing) consecutiveErrors = 0;
+      updateMediaSessionPlaybackState(playing);
       set({ isPlaying: playing });
     },
     onTime: (time, duration) => {
-      set({ currentTime: time, duration: duration > 0 && isFinite(duration) ? duration : get().duration });
+      const dur = duration > 0 && isFinite(duration) ? duration : get().duration;
+      updateMediaSessionPositionState(time, dur);
+      set({ currentTime: time, duration: dur });
     },
     onEnded: () => {
       get().nextTrack();

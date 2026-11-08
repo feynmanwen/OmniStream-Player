@@ -26,6 +26,31 @@ export function updateMediaSessionMetadata(track: Track | null) {
   }
 }
 
+export function updateMediaSessionPlaybackState(isPlaying: boolean) {
+  if (!('mediaSession' in navigator)) return;
+  try {
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+  } catch {
+    // 安全忽略不支援的瀏覽器
+  }
+}
+
+export function updateMediaSessionPositionState(position: number, duration: number, playbackRate: number = 1.0) {
+  if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
+  if (!Number.isFinite(duration) || duration <= 0) return;
+  if (!Number.isFinite(position) || position < 0) return;
+
+  try {
+    navigator.mediaSession.setPositionState({
+      duration: Math.max(0, duration),
+      playbackRate: playbackRate,
+      position: Math.min(Math.max(0, position), duration),
+    });
+  } catch {
+    // 安全忽略不支援的狀態
+  }
+}
+
 export function setupMediaSessionActionHandlers(actions: {
   onPlay: () => void;
   onPause: () => void;

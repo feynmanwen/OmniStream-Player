@@ -165,6 +165,19 @@ export const SettingsModal: React.FC = () => {
           )}
         </div>
 
+        {/* 背景播放提示說明 */}
+        <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-xs text-neutral-300 flex flex-col gap-2">
+          <h4 className="font-medium text-neutral-200 flex items-center justify-between text-[12px]">
+            <span>🎧 背景播放與鎖定畫面控制</span>
+            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">已支援 MediaSession</span>
+          </h4>
+          <ul className="space-y-1.5 text-neutral-400 text-[11px] leading-relaxed">
+            <li>• <strong>鎖定畫面 / 控制中心</strong>：播放時支援系統通知中心顯示歌曲封面、上一首、下一首、暫停/播放與進度拉桿。</li>
+            <li>• <strong>行動端背景播放 (iOS / Android)</strong>：建議點擊瀏覽器選單選擇<strong>「加入主畫面」</strong>安裝為 PWA App，在切換到其他 App 或鎖定螢幕時能維持最佳背景串流穩定度。</li>
+            <li>• <strong>YouTube 串流提示</strong>：依 YouTube 官方規範，若鎖定螢幕後播放暫停，可直接在手機鎖定螢幕或控制中心點擊<strong>「播放鍵」</strong>繼續背景收聽。</li>
+          </ul>
+        </div>
+
         {/* 申請教學說明 */}
         <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-xs text-neutral-300 flex flex-col gap-2">
           <h4 className="font-medium text-neutral-200 flex items-center justify-between text-[12px]">
@@ -182,7 +195,7 @@ export const SettingsModal: React.FC = () => {
             <li>登入 Google Cloud Console 並建立專案。</li>
             <li>至「API 和服務」&gt;「程式庫」，搜尋並啟用 <strong>YouTube Data API v3</strong>。</li>
             <li>至「憑證」點選「建立憑證」&gt;「API 金鑰」。</li>
-            <li>建議將「應用程式限制」設定為 <code>http://localhost:3000/*</code>。</li>
+            <li>建議將「應用程式限制」設定為 <code>https://feynmanwen.github.io/*</code> 與 <code>http://localhost:3000/*</code>。</li>
           </ol>
         </div>
 
