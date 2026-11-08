@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { YoutubeIcon } from './icons/YoutubeIcon';
 import { usePlayerStore, filterBySource } from '../store/usePlayerStore';
+import { MAX_OFFLINE_TRACKS } from '../services/offlineCache';
 import { Track } from '../types/player';
 import { formatTime } from '../utils/formatTime';
 import { MainNavTab } from './Navbar';
@@ -46,6 +47,8 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
     activePlaylistId,
     setActivePlaylistId,
     deletePlaylist,
+    clearPlaylistTracks,
+    clearAllPlaylists,
     removeTrackFromPlaylist,
     playTrack,
     playList,
@@ -169,7 +172,14 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
             ) : activeTab === 'history' ? (
               <>
                 <History className="w-7 h-7 text-emerald-400" />
-                播放歷史與離線清單
+                <span>播放歷史與離線歌區</span>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium border ${
+                  historyTracks.length >= MAX_OFFLINE_TRACKS
+                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                    : 'bg-white/10 text-neutral-300 border-white/10'
+                }`}>
+                  {historyTracks.length} / {MAX_OFFLINE_TRACKS} 首
+                </span>
               </>
             ) : activeTab === 'playlists' ? (
               activePlaylist ? (
@@ -195,7 +205,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
           </h1>
           <p className="text-xs text-neutral-400 mt-1 font-normal flex items-center gap-2">
             {activeTab === 'history' ? (
-              <span>播放過的歌曲會自動暫存於此，Audius 音訊會自動快取為本機離線檔案，無網路時亦可播放。</span>
+              <span>離線歌區上限為 {MAX_OFFLINE_TRACKS} 首，播過的歌曲會自動暫存離線檔案。達上限時請清除以釋出空間。</span>
             ) : activeTab === 'playlists' ? (
               activePlaylist ? (
                 <span>{activePlaylist.description || `包含 ${activePlaylist.tracks.length} 首自選曲目`}</span>
@@ -212,27 +222,60 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
 
         <div className="flex items-center gap-2.5 flex-wrap">
           {activeTab === 'playlists' && !activePlaylist && (
-            <button
-              onClick={() => onOpenCreatePlaylist?.()}
-              className="px-4 py-2 rounded-full bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-xs font-semibold shadow-lg shadow-purple-600/25 flex items-center gap-2 transition-all cursor-pointer"
-            >
-              <FolderPlus className="w-3.5 h-3.5" />
-              <span>新建歌單</span>
-            </button>
+            <>
+              <button
+                onClick={() => onOpenCreatePlaylist?.()}
+                className="px-4 py-2 rounded-full bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-xs font-semibold shadow-lg shadow-purple-600/25 flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+                <span>新建歌單</span>
+              </button>
+              {playlists.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (window.confirm('確定要清空所有自訂播放清單嗎？（此動作無法復原）')) {
+                      clearAllPlaylists();
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-full apple-pill text-neutral-400 hover:text-rose-400 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="清除所有播放清單"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">清空全部歌單</span>
+                </button>
+              )}
+            </>
           )}
 
           {activeTab === 'playlists' && activePlaylist && (
-            <button
-              onClick={() => {
-                if (window.confirm(`確定要刪除「${activePlaylist.name}」歌單嗎？`)) {
-                  deletePlaylist(activePlaylist.id);
-                }
-              }}
-              className="px-3.5 py-2 rounded-full apple-pill text-neutral-400 hover:text-rose-400 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>刪除此歌單</span>
-            </button>
+            <>
+              {activePlaylist.tracks.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (window.confirm(`確定要清除「${activePlaylist.name}」內的所有歌曲嗎？`)) {
+                      clearPlaylistTracks(activePlaylist.id);
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-full apple-pill text-neutral-400 hover:text-amber-400 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="清空此歌單內的歌曲"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>清空歌曲</span>
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  if (window.confirm(`確定要刪除「${activePlaylist.name}」歌單嗎？`)) {
+                    deletePlaylist(activePlaylist.id);
+                  }
+                }}
+                className="px-3.5 py-2 rounded-full apple-pill text-neutral-400 hover:text-rose-400 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
+                title="刪除此歌單"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>刪除此歌單</span>
+              </button>
+            </>
           )}
 
           {displayTracks.length > 0 && (
@@ -254,18 +297,46 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
             </>
           )}
 
-          {activeTab === 'history' && displayTracks.length > 0 && (
+          {activeTab === 'history' && historyTracks.length > 0 && (
             <button
-              onClick={() => clearHistory()}
+              onClick={() => {
+                if (window.confirm('確定要清空離線歌區與所有已快取的歌曲嗎？')) {
+                  clearHistory();
+                }
+              }}
               className="px-3.5 py-2 rounded-full apple-pill text-neutral-400 hover:text-rose-400 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
               title="清空歷史記錄與離線快取"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">清空歷史</span>
+              <span>清空離線歌區</span>
             </button>
           )}
         </div>
       </div>
+
+      {/* 離線歌區額滿警示橫幅 */}
+      {activeTab === 'history' && historyTracks.length >= MAX_OFFLINE_TRACKS && (
+        <div className="mb-6 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-200 text-xs flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+            <span>
+              <strong>離線歌區已達到上限（{MAX_OFFLINE_TRACKS} 首）！</strong>
+              無法再新增或快取更多歌曲，請使用右上方「清空離線歌區」或點選單曲垃圾桶圖示刪除歌曲。
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              if (window.confirm('確定要清空離線歌區與所有快取歌曲以釋出空間嗎？')) {
+                clearHistory();
+              }
+            }}
+            className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer shadow"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            立即清空
+          </button>
+        </div>
+      )}
 
       {/* 歌單總覽卡片網格 (當 activeTab === 'playlists' 且尚未選擇特定歌單) */}
       {activeTab === 'playlists' && !activePlaylist && (
@@ -311,13 +382,41 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
                         </div>
                       </div>
                     </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-[14px] text-white truncate">
-                        {playlist.name}
-                      </h3>
-                      <p className="text-[12px] text-neutral-400 truncate mt-0.5">
-                        {playlist.tracks.length} 首歌曲
-                      </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-[14px] text-white truncate">
+                          {playlist.name}
+                        </h3>
+                        <p className="text-[12px] text-neutral-400 truncate mt-0.5">
+                          {playlist.tracks.length} 首歌曲
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
+                        {playlist.tracks.length > 0 && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`確定要清空「${playlist.name}」中的歌曲嗎？`)) {
+                                clearPlaylistTracks(playlist.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-full text-neutral-400 hover:text-amber-400 hover:bg-white/10 transition-colors cursor-pointer"
+                            title="清空此歌單歌曲"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`確定要刪除「${playlist.name}」歌單嗎？`)) {
+                              deletePlaylist(playlist.id);
+                            }
+                          }}
+                          className="p-1.5 rounded-full text-neutral-400 hover:text-rose-400 hover:bg-white/10 transition-colors cursor-pointer"
+                          title="刪除歌單"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

@@ -30,10 +30,34 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-/** 將播放過的曲目加入歷史清單與快取資料庫 */
-export async function saveTrackToHistory(track: Track): Promise<void> {
+export const MAX_OFFLINE_TRACKS = 200;
+
+/** 將播放過的曲目加入歷史清單與快取資料庫 (上限 200 首，超過時無法新增) */
+export async function saveTrackToHistory(track: Track): Promise<{ success: boolean; limitExceeded?: boolean }> {
   try {
     const db = await openDatabase();
+
+    // 檢查現有曲目總數與是否已存在本曲目
+    const countTx = db.transaction(STORE_TRACKS, 'readonly');
+    const countStore = countTx.objectStore(STORE_TRACKS);
+    const existing = await new Promise<boolean>((resolve) => {
+      const getReq = countStore.get(track.id);
+      getReq.onsuccess = () => resolve(Boolean(getReq.result));
+      getReq.onerror = () => resolve(false);
+    });
+
+    if (!existing) {
+      const totalCount = await new Promise<number>((resolve) => {
+        const countReq = countStore.count();
+        countReq.onsuccess = () => resolve(countReq.result);
+        countReq.onerror = () => resolve(0);
+      });
+
+      if (totalCount >= MAX_OFFLINE_TRACKS) {
+        return { success: false, limitExceeded: true };
+      }
+    }
+
     const tx = db.transaction(STORE_TRACKS, 'readwrite');
     const store = tx.objectStore(STORE_TRACKS);
 
@@ -50,12 +74,13 @@ export async function saveTrackToHistory(track: Track): Promise<void> {
         if (track.streamUrl && track.source !== 'youtube') {
           cacheAudioBlob(track.id, track.streamUrl).catch(() => {});
         }
-        resolve();
+        resolve({ success: true });
       };
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
     console.warn('儲存播放歷史失敗:', err);
+    return { success: false };
   }
 }
 

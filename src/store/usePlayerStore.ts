@@ -12,7 +12,8 @@ import {
   getHistoryTracks,
   removeHistoryTrack,
   clearAllHistory,
-  cacheAudioBlob
+  cacheAudioBlob,
+  MAX_OFFLINE_TRACKS,
 } from '../services/offlineCache';
 import {
   getSavedActiveUser,
@@ -126,6 +127,8 @@ interface PlayerState {
   // 播放清單動作
   createPlaylist: (name: string, description?: string) => Playlist;
   deletePlaylist: (playlistId: string) => void;
+  clearPlaylistTracks: (playlistId: string) => void;
+  clearAllPlaylists: () => void;
   addTrackToPlaylist: (playlistId: string, track: Track) => void;
   removeTrackFromPlaylist: (playlistId: string, trackId: string) => void;
   setActivePlaylistId: (id: string | null) => void;
@@ -172,9 +175,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     updateMediaSessionMetadata(track);
     playback.loadAndPlay(track);
 
-    // 儲存至 IndexedDB 播放歷史並自動快取離線音訊
+    // 儲存至 IndexedDB 播放歷史並自動快取離線音訊 (上限 200 首)
     saveTrackToHistory(track)
-      .then(() => getHistoryTracks())
+      .then((res) => {
+        if (res?.limitExceeded) {
+          get().showToast(`⚠️ 離線歌區已達上限（${MAX_OFFLINE_TRACKS} 首），請先清除歷史歌曲否則無法新增！`);
+        }
+        return getHistoryTracks();
+      })
       .then((history) => {
         set({ historyTracks: history });
       })
@@ -321,13 +329,36 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     deletePlaylist: (playlistId: string) => {
       const { playlists, currentUser, activePlaylistId } = get();
+      const target = playlists.find((pl) => pl.id === playlistId);
       const updated = playlists.filter((pl) => pl.id !== playlistId);
       writeUserStorage(currentUser, KEY_PLAYLISTS, JSON.stringify(updated));
       set({
         playlists: updated,
         activePlaylistId: activePlaylistId === playlistId ? null : activePlaylistId,
       });
-      get().showToast('已刪除播放清單');
+      get().showToast(`已刪除播放清單「${target?.name || ''}」`);
+    },
+
+    clearPlaylistTracks: (playlistId: string) => {
+      const { playlists, currentUser } = get();
+      let targetName = '';
+      const updated = playlists.map((pl) => {
+        if (pl.id === playlistId) {
+          targetName = pl.name;
+          return { ...pl, tracks: [] };
+        }
+        return pl;
+      });
+      writeUserStorage(currentUser, KEY_PLAYLISTS, JSON.stringify(updated));
+      set({ playlists: updated });
+      get().showToast(`已清空「${targetName}」內的所有歌曲`);
+    },
+
+    clearAllPlaylists: () => {
+      const { currentUser } = get();
+      writeUserStorage(currentUser, KEY_PLAYLISTS, JSON.stringify([]));
+      set({ playlists: [], activePlaylistId: null });
+      get().showToast('已清空所有自訂播放清單');
     },
 
     addTrackToPlaylist: (playlistId: string, track: Track) => {
@@ -384,12 +415,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     clearHistory: async () => {
       await clearAllHistory();
       set({ historyTracks: [] });
-      get().showToast('已清空播放歷史與離線快取');
+      get().showToast('已清空離線歌區與本機快取');
     },
 
     cacheTrackAudio: async (track: Track) => {
       if (!track.streamUrl || track.source === 'youtube') {
         get().showToast('此來源不支援離線快取下載');
+        return;
+      }
+      const { historyTracks } = get();
+      const exists = historyTracks.some((t) => t.id === track.id);
+      if (!exists && historyTracks.length >= MAX_OFFLINE_TRACKS) {
+        get().showToast(`⚠️ 離線歌區已達上限（${MAX_OFFLINE_TRACKS} 首），請先清除歷史歌曲否則無法新增！`);
         return;
       }
       get().showToast(`正在快取《${track.title}》...`);
