@@ -1,0 +1,204 @@
+import React, { useState } from 'react';
+import { Search, Loader2, Music2, ListMusic, Heart, Settings, Sparkles } from 'lucide-react';
+import { usePlayerStore } from '../store/usePlayerStore';
+import { FEATURED_ARTISTS, POPULAR_GENRES } from '../services/searchService';
+
+interface NavbarProps {
+  showFavoritesOnly: boolean;
+  setShowFavoritesOnly: (show: boolean) => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ showFavoritesOnly, setShowFavoritesOnly }) => {
+  const [inputValue, setInputValue] = useState('');
+  const {
+    isSearching,
+    searchAndAutoplay,
+    queue,
+    favorites,
+    isQueueOpen,
+    setIsQueueOpen,
+    fullOnly,
+    setFullOnly,
+    setIsSettingsOpen,
+    getYoutubeApiKey,
+    searchQuery,
+  } = usePlayerStore();
+
+  const hasYtKey = Boolean(getYoutubeApiKey());
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputValue.trim()) {
+      setShowFavoritesOnly(false);
+      searchAndAutoplay(inputValue.trim());
+    }
+  };
+
+  const handleArtistClick = (artistName: string) => {
+    setInputValue(artistName);
+    setShowFavoritesOnly(false);
+    searchAndAutoplay(artistName);
+  };
+
+  return (
+    <header className="sticky top-0 z-30 w-full apple-header transition-all">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col gap-3">
+        {/* 上層：品牌 + 搜尋欄 + 系統操作 */}
+        <div className="flex items-center justify-between gap-3 sm:gap-6">
+          {/* Apple Music 風格品牌標誌 */}
+          <div
+            onClick={() => setShowFavoritesOnly(false)}
+            className="flex items-center gap-2.5 cursor-pointer select-none group shrink-0"
+          >
+            <div className="w-9 h-9 rounded-2xl bg-gradient-to-b from-[#fa2d48] to-[#d61933] flex items-center justify-center shadow-lg shadow-[#fa2d48]/25 group-hover:scale-105 transition-transform">
+              <Music2 className="w-5 h-5 text-white" />
+            </div>
+            <div className="hidden sm:flex flex-col">
+              <span className="text-[17px] font-semibold text-white tracking-tight leading-tight">
+                音樂
+              </span>
+              <span className="text-[10px] text-neutral-400 font-medium tracking-wide">
+                OmniStream
+              </span>
+            </div>
+          </div>
+
+          {/* Apple 極簡風格搜尋框 */}
+          <form onSubmit={handleSearchSubmit} className="flex-1 max-w-xl relative">
+            <div className="relative flex items-center">
+              <div className="absolute left-3.5 pointer-events-none text-neutral-400">
+                {isSearching ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#fa2d48]" />
+                ) : (
+                  <Search className="w-4 h-4" />
+                )}
+              </div>
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="搜尋歌曲、藝人、專輯 (Enter 即動播)..."
+                className="w-full pl-10 pr-20 py-2 bg-white/[0.08] hover:bg-white/[0.11] focus:bg-white/[0.14] text-[13px] text-white placeholder-neutral-400 rounded-full border border-white/[0.08] focus:border-white/20 transition-all outline-none"
+              />
+              <button
+                type="submit"
+                disabled={isSearching || !inputValue.trim()}
+                className="absolute right-1 px-3 py-1 text-xs font-medium rounded-full bg-[#fa2d48] hover:bg-[#e0233d] active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+              >
+                <Sparkles className="w-3 h-3" />
+                <span>動播</span>
+              </button>
+            </div>
+          </form>
+
+          {/* 右側按鈕：收藏 / 待播清單 / 設定 */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* 我的最愛 */}
+            <button
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={`p-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer ${
+                showFavoritesOnly
+                  ? 'bg-[#fa2d48]/20 border-[#fa2d48]/40 text-[#fa2d48]'
+                  : 'apple-pill text-neutral-300 hover:text-white'
+              }`}
+              title="已喜愛的曲目"
+            >
+              <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-current' : ''}`} />
+              <span className="hidden md:inline">喜愛</span>
+              {favorites.length > 0 && (
+                <span className="text-[11px] text-neutral-400 font-mono">
+                  {favorites.length}
+                </span>
+              )}
+            </button>
+
+            {/* 播放佇列 */}
+            <button
+              onClick={() => setIsQueueOpen(!isQueueOpen)}
+              className={`p-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer ${
+                isQueueOpen
+                  ? 'bg-white/20 border-white/30 text-white'
+                  : 'apple-pill text-neutral-300 hover:text-white'
+              }`}
+              title="待播清單"
+            >
+              <ListMusic className="w-4 h-4" />
+              <span className="hidden md:inline">佇列</span>
+              {queue.length > 0 && (
+                <span className="text-[11px] text-neutral-400 font-mono">
+                  {queue.length}
+                </span>
+              )}
+            </button>
+
+            {/* 設定按鈕 */}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 rounded-full apple-pill text-neutral-400 hover:text-white transition-all relative cursor-pointer"
+              title={hasYtKey ? '設定 (YouTube 已啟用)' : '設定 (點擊填入金鑰)'}
+            >
+              <Settings className="w-4 h-4" />
+              {hasYtKey ? (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-400 rounded-full" />
+              ) : (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* 下層：歌手推薦與分類標籤 (Apple Music 膠囊風格) */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 text-xs">
+          {/* 指定預設歌手快捷列 */}
+          <span className="text-neutral-500 font-medium text-[11px] tracking-wider uppercase shrink-0 mr-0.5">
+            推薦藝人:
+          </span>
+          {FEATURED_ARTISTS.map((artist) => {
+            const isSelected = searchQuery === artist.name;
+            return (
+              <button
+                key={artist.id}
+                onClick={() => handleArtistClick(artist.query)}
+                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 border ${
+                  isSelected
+                    ? 'bg-[#fa2d48] text-white border-[#fa2d48] shadow-md shadow-[#fa2d48]/20 font-semibold'
+                    : 'apple-pill text-neutral-200 hover:text-white hover:border-white/20'
+                }`}
+              >
+                <span>{artist.name}</span>
+                <span className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-neutral-400'}`}>
+                  {artist.tagline}
+                </span>
+              </button>
+            );
+          })}
+
+          <div className="h-3 w-[1px] bg-white/10 shrink-0 mx-1" />
+
+          {/* 完整曲目過濾切換 */}
+          <button
+            onClick={() => setFullOnly(!fullOnly)}
+            className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 transition-all border cursor-pointer ${
+              fullOnly
+                ? 'bg-white/10 border-white/20 text-neutral-200'
+                : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+            }`}
+          >
+            {fullOnly ? '完整曲目' : '含試聽'}
+          </button>
+
+          {/* 精選風格標籤 */}
+          {POPULAR_GENRES.map((genre) => (
+            <button
+              key={genre.id}
+              onClick={() => handleArtistClick(genre.query)}
+              className="px-2.5 py-1 rounded-full apple-pill text-neutral-400 hover:text-neutral-200 text-[11px] whitespace-nowrap shrink-0 transition-all cursor-pointer"
+            >
+              {genre.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </header>
+  );
+};
