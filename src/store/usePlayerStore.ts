@@ -7,6 +7,13 @@ import {
   updateMediaSessionPositionState
 } from '../utils/mediaSession';
 import { playback, setEngineListeners } from '../engine/playbackController';
+import {
+  saveTrackToHistory,
+  getHistoryTracks,
+  removeHistoryTrack,
+  clearAllHistory,
+  cacheAudioBlob
+} from '../services/offlineCache';
 
 // 本地存儲鍵名
 const STORAGE_KEY_FAVORITES = 'omnistream_favorites_v1';
@@ -73,10 +80,17 @@ interface PlayerState {
   isFullscreenPlayerOpen: boolean;
   isSettingsOpen: boolean;
 
+  historyTracks: Track[];
+  isHistoryLoading: boolean;
+
   // 動作 (Actions)
   setSearchQuery: (query: string) => void;
   searchAndAutoplay: (query: string) => Promise<void>;
   loadTrending: () => Promise<void>;
+  loadHistory: () => Promise<void>;
+  deleteHistoryTrack: (trackId: string) => Promise<void>;
+  clearHistory: () => Promise<void>;
+  cacheTrackAudio: (track: Track) => Promise<void>;
   setFullOnly: (fullOnly: boolean) => void;
   setUserYoutubeApiKey: (key: string) => void;
   setSourceFilter: (filter: SourceFilter) => void;
@@ -111,6 +125,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     set({ currentTime: 0, duration: track.duration || 0 });
     updateMediaSessionMetadata(track);
     playback.loadAndPlay(track);
+
+    // 儲存至 IndexedDB 播放歷史並自動快取離線音訊
+    saveTrackToHistory(track)
+      .then(() => getHistoryTracks())
+      .then((history) => {
+        set({ historyTracks: history });
+      })
+      .catch((err) => console.warn('無法記錄播放歷史:', err));
   };
 
   // 接收兩個引擎回報的事件
@@ -168,9 +190,51 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     sourceFilter: readStorage<SourceFilter>(STORAGE_KEY_SOURCE_FILTER, 'all', (raw) => raw as SourceFilter),
     toast: null,
 
+    historyTracks: [],
+    isHistoryLoading: false,
+
     isQueueOpen: false,
     isFullscreenPlayerOpen: false,
     isSettingsOpen: false,
+
+    loadHistory: async () => {
+      set({ isHistoryLoading: true });
+      try {
+        const history = await getHistoryTracks();
+        set({ historyTracks: history, isHistoryLoading: false });
+      } catch {
+        set({ isHistoryLoading: false });
+      }
+    },
+
+    deleteHistoryTrack: async (trackId: string) => {
+      await removeHistoryTrack(trackId);
+      const history = await getHistoryTracks();
+      set({ historyTracks: history });
+      get().showToast('已從歷史清單移除');
+    },
+
+    clearHistory: async () => {
+      await clearAllHistory();
+      set({ historyTracks: [] });
+      get().showToast('已清空播放歷史與離線快取');
+    },
+
+    cacheTrackAudio: async (track: Track) => {
+      if (!track.streamUrl || track.source === 'youtube') {
+        get().showToast('此來源不支援離線快取下載');
+        return;
+      }
+      get().showToast(`正在快取《${track.title}》...`);
+      const ok = await cacheAudioBlob(track.id, track.streamUrl);
+      if (ok) {
+        const history = await getHistoryTracks();
+        set({ historyTracks: history });
+        get().showToast(`《${track.title}》已完成離線快取`);
+      } else {
+        get().showToast(`快取《${track.title}》失敗`);
+      }
+    },
 
     setSearchQuery: (query) => set({ searchQuery: query }),
 

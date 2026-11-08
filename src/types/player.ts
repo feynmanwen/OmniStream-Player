@@ -14,6 +14,10 @@ export interface Track {
   isPreview?: boolean;
   genre?: string;
   year?: string;
+  /** 是否具備本機離線快取音訊 */
+  isOfflineAvailable?: boolean;
+  /** 播放時間戳記 */
+  playedAt?: number;
 }
 
 export type PlaybackMode = 'order' | 'repeat-all' | 'repeat-one' | 'shuffle';

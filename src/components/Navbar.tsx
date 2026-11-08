@@ -1,20 +1,23 @@
 import React, { useState } from 'react';
-import { Search, Loader2, Music2, ListMusic, Heart, Settings, Sparkles } from 'lucide-react';
+import { Search, Loader2, Music2, ListMusic, Heart, Settings, Sparkles, History } from 'lucide-react';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { FEATURED_ARTISTS, POPULAR_GENRES } from '../services/searchService';
 
+export type MainNavTab = 'search' | 'favorites' | 'history';
+
 interface NavbarProps {
-  showFavoritesOnly: boolean;
-  setShowFavoritesOnly: (show: boolean) => void;
+  activeTab: MainNavTab;
+  setActiveTab: (tab: MainNavTab) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ showFavoritesOnly, setShowFavoritesOnly }) => {
+export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   const [inputValue, setInputValue] = useState('');
   const {
     isSearching,
     searchAndAutoplay,
     queue,
     favorites,
+    historyTracks,
     isQueueOpen,
     setIsQueueOpen,
     fullOnly,
@@ -29,14 +32,14 @@ export const Navbar: React.FC<NavbarProps> = ({ showFavoritesOnly, setShowFavori
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim()) {
-      setShowFavoritesOnly(false);
+      setActiveTab('search');
       searchAndAutoplay(inputValue.trim());
     }
   };
 
   const handleArtistClick = (artistName: string) => {
     setInputValue(artistName);
-    setShowFavoritesOnly(false);
+    setActiveTab('search');
     searchAndAutoplay(artistName);
   };
 
@@ -47,7 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({ showFavoritesOnly, setShowFavori
         <div className="flex items-center justify-between gap-3 sm:gap-6">
           {/* Apple Music 風格品牌標誌 */}
           <div
-            onClick={() => setShowFavoritesOnly(false)}
+            onClick={() => setActiveTab('search')}
             className="flex items-center gap-2.5 cursor-pointer select-none group shrink-0"
           >
             <div className="w-9 h-9 rounded-2xl bg-gradient-to-b from-[#fa2d48] to-[#d61933] flex items-center justify-center shadow-lg shadow-[#fa2d48]/25 group-hover:scale-105 transition-transform">
@@ -91,19 +94,38 @@ export const Navbar: React.FC<NavbarProps> = ({ showFavoritesOnly, setShowFavori
             </div>
           </form>
 
-          {/* 右側按鈕：收藏 / 待播清單 / 設定 */}
+          {/* 右側按鈕：歷史暫存 / 收藏 / 待播清單 / 設定 */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* 歷史播放 (離線可用) */}
+            <button
+              onClick={() => setActiveTab(activeTab === 'history' ? 'search' : 'history')}
+              className={`p-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'history'
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                  : 'apple-pill text-neutral-300 hover:text-white'
+              }`}
+              title="播放歷史 (離線暫存清單)"
+            >
+              <History className="w-4 h-4" />
+              <span className="hidden md:inline">歷史/離線</span>
+              {historyTracks.length > 0 && (
+                <span className="text-[11px] text-neutral-400 font-mono">
+                  {historyTracks.length}
+                </span>
+              )}
+            </button>
+
             {/* 我的最愛 */}
             <button
-              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              onClick={() => setActiveTab(activeTab === 'favorites' ? 'search' : 'favorites')}
               className={`p-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer ${
-                showFavoritesOnly
+                activeTab === 'favorites'
                   ? 'bg-[#fa2d48]/20 border-[#fa2d48]/40 text-[#fa2d48]'
                   : 'apple-pill text-neutral-300 hover:text-white'
               }`}
               title="已喜愛的曲目"
             >
-              <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-current' : ''}`} />
+              <Heart className={`w-4 h-4 ${activeTab === 'favorites' ? 'fill-current' : ''}`} />
               <span className="hidden md:inline">喜愛</span>
               {favorites.length > 0 && (
                 <span className="text-[11px] text-neutral-400 font-mono">

@@ -7,6 +7,7 @@ import {
 } from '../engine/playbackController';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { setupMediaSessionActionHandlers } from '../utils/mediaSession';
+import { getOfflineAudioUrl } from '../services/offlineCache';
 
 export const AudioEngine: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -17,9 +18,19 @@ export const AudioEngine: React.FC = () => {
     if (!audio) return;
 
     const adapter: PlaybackAdapter = {
-      load: (track) => {
-        if (!track.streamUrl) return;
-        audio.src = track.streamUrl;
+      load: async (track) => {
+        let playUrl = track.streamUrl;
+        try {
+          const offlineBlobUrl = await getOfflineAudioUrl(track.id);
+          if (offlineBlobUrl) {
+            playUrl = offlineBlobUrl;
+          }
+        } catch {
+          // 降級使用 streamUrl
+        }
+
+        if (!playUrl) return;
+        audio.src = playUrl;
         audio.load();
         audio.play().catch((err) => {
           console.warn('HTML Audio 自動播放被攔截或失敗:', err);

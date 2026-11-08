@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Navbar } from './components/Navbar';
+import { Navbar, MainNavTab } from './components/Navbar';
 import { SearchResults } from './components/SearchResults';
 import { PlayerBar } from './components/PlayerBar';
 import { QueueDrawer } from './components/QueueDrawer';
@@ -11,7 +11,7 @@ import { usePlayerStore } from './store/usePlayerStore';
 import { Info } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [activeTab, setActiveTab] = useState<MainNavTab>('search');
   const {
     togglePlay,
     nextTrack,
@@ -22,13 +22,15 @@ export const App: React.FC = () => {
     setVolume,
     volume,
     loadTrending,
+    loadHistory,
     toast,
   } = usePlayerStore();
 
-  // 啟動時載入熱門完整曲目
+  // 啟動時載入熱門完整曲目與本機歷史清單
   useEffect(() => {
     loadTrending();
-  }, [loadTrending]);
+    loadHistory();
+  }, [loadTrending, loadHistory]);
 
   // 全域鍵盤多媒體熱鍵支援
   useEffect(() => {
@@ -69,13 +71,16 @@ export const App: React.FC = () => {
 
       {/* 頂部導航與搜尋列 */}
       <Navbar
-        showFavoritesOnly={showFavoritesOnly}
-        setShowFavoritesOnly={setShowFavoritesOnly}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
 
       {/* 主要內容區 */}
       <main className="flex-1 w-full">
-        <SearchResults showFavoritesOnly={showFavoritesOnly} />
+        <SearchResults
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+        />
       </main>
 
       {/* 側邊播放佇列抽屜 */}

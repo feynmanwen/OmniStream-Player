@@ -8,17 +8,22 @@ import {
   Volume2,
   AlertTriangle,
   Key,
+  History,
+  Trash2,
+  HardDriveDownload,
 } from 'lucide-react';
 import { YoutubeIcon } from './icons/YoutubeIcon';
 import { usePlayerStore, filterBySource } from '../store/usePlayerStore';
 import { Track } from '../types/player';
 import { formatTime } from '../utils/formatTime';
+import { MainNavTab } from './Navbar';
 
 interface SearchResultsProps {
-  showFavoritesOnly: boolean;
+  activeTab: MainNavTab;
+  setActiveTab: (tab: MainNavTab) => void;
 }
 
-export const SearchResults: React.FC<SearchResultsProps> = ({ showFavoritesOnly }) => {
+export const SearchResults: React.FC<SearchResultsProps> = ({ activeTab }) => {
   const {
     searchResults,
     searchQuery,
@@ -27,10 +32,14 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ showFavoritesOnly 
     currentIndex,
     isPlaying,
     favorites,
+    historyTracks,
     playTrack,
     playList,
     addToQueue,
     toggleFavorite,
+    deleteHistoryTrack,
+    clearHistory,
+    cacheTrackAudio,
     sourceFilter,
     setSourceFilter,
     searchWarnings,
@@ -39,13 +48,23 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ showFavoritesOnly 
   } = usePlayerStore();
 
   const currentTrack = queue[currentIndex] || null;
-  const baseTracks: Track[] = showFavoritesOnly ? favorites : searchResults;
+  const baseTracks: Track[] =
+    activeTab === 'favorites'
+      ? favorites
+      : activeTab === 'history'
+      ? historyTracks
+      : searchResults;
 
   // 計算各來源數量
   const ytCount = baseTracks.filter((t) => t.source === 'youtube').length;
   const audiusCount = baseTracks.filter((t) => t.source !== 'youtube').length;
 
-  const displayTracks: Track[] = showFavoritesOnly ? favorites : filterBySource(baseTracks, sourceFilter);
+  const displayTracks: Track[] =
+    activeTab === 'favorites'
+      ? favorites
+      : activeTab === 'history'
+      ? historyTracks
+      : filterBySource(baseTracks, sourceFilter);
   const hasYtKey = Boolean(getYoutubeApiKey());
 
   const handlePlayAll = () => {
@@ -80,7 +99,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ showFavoritesOnly 
       )}
 
       {/* 尚未設定 YouTube 金鑰之引導提示 (若有自訂金鑰需求) */}
-      {!hasYtKey && !showFavoritesOnly && searchQuery && (
+      {!hasYtKey && activeTab === 'search' && searchQuery && (
         <div className="mb-6 p-4 rounded-2xl apple-card text-xs text-neutral-300 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <YoutubeIcon className="w-5 h-5 text-[#fa2d48] shrink-0" />
@@ -102,13 +121,18 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ showFavoritesOnly 
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 mb-6 pb-4 border-b border-white/[0.06]">
         <div>
           <span className="text-[11px] font-semibold tracking-wider text-[#fa2d48] uppercase mb-1 block">
-            {showFavoritesOnly ? '收藏庫' : '精選推薦'}
+            {activeTab === 'favorites' ? '個人收藏庫' : activeTab === 'history' ? '離線暫存庫' : '精選推薦'}
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            {showFavoritesOnly ? (
+            {activeTab === 'favorites' ? (
               <>
                 <Heart className="w-7 h-7 text-[#fa2d48] fill-[#fa2d48]" />
                 喜愛歌曲
+              </>
+            ) : activeTab === 'history' ? (
+              <>
+                <History className="w-7 h-7 text-emerald-400" />
+                播放歷史與離線清單
               </>
             ) : searchQuery ? (
               <>
@@ -120,13 +144,19 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ showFavoritesOnly 
               </>
             )}
           </h1>
-          <p className="text-xs text-neutral-400 mt-1 font-normal">
-            {isSearching ? '正在連接音樂資料庫...' : `共 ${displayTracks.length} 首精彩曲目`}
+          <p className="text-xs text-neutral-400 mt-1 font-normal flex items-center gap-2">
+            {activeTab === 'history' ? (
+              <span>播放過的歌曲會自動暫存於此，Audius 音訊會自動快取為本機離線檔案，無網路時亦可播放。</span>
+            ) : isSearching ? (
+              '正在連接音樂資料庫...'
+            ) : (
+              `共 ${displayTracks.length} 首精彩曲目`
+            )}
           </p>
         </div>
 
         {displayTracks.length > 0 && (
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <button
               onClick={handlePlayAll}
               className="px-5 py-2 rounded-full bg-[#fa2d48] hover:bg-[#e0233d] active:scale-95 text-white text-xs font-semibold shadow-lg shadow-[#fa2d48]/25 flex items-center gap-2 transition-all cursor-pointer"
@@ -141,12 +171,22 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ showFavoritesOnly 
               <Plus className="w-3.5 h-3.5" />
               <span>加入待播</span>
             </button>
+            {activeTab === 'history' && (
+              <button
+                onClick={() => clearHistory()}
+                className="px-3.5 py-2 rounded-full apple-pill text-neutral-400 hover:text-rose-400 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
+                title="清空歷史記錄與離線快取"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">清空歷史</span>
+              </button>
+            )}
           </div>
         )}
       </div>
 
       {/* Apple 膠囊分段控制器 (Segmented Control) */}
-      {!showFavoritesOnly && baseTracks.length > 0 && (
+      {activeTab === 'search' && baseTracks.length > 0 && (
         <div className="inline-flex p-1 rounded-full bg-white/[0.05] border border-white/[0.06] mb-6 gap-1">
           <button
             onClick={() => setSourceFilter('all')}
@@ -186,18 +226,26 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ showFavoritesOnly 
       {displayTracks.length === 0 && !isSearching && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="w-16 h-16 rounded-3xl bg-neutral-900/80 border border-white/10 flex items-center justify-center text-neutral-500 mb-4 shadow-xl">
-            {showFavoritesOnly ? (
+            {activeTab === 'favorites' ? (
               <Heart className="w-8 h-8 text-[#fa2d48]/40" />
+            ) : activeTab === 'history' ? (
+              <History className="w-8 h-8 text-emerald-400/40" />
             ) : (
               <Music className="w-8 h-8 text-neutral-400" />
             )}
           </div>
           <h3 className="text-base font-semibold text-neutral-200 mb-1">
-            {showFavoritesOnly ? '您尚未加入任何喜愛歌曲' : '沒有找到相符的曲目'}
+            {activeTab === 'favorites'
+              ? '您尚未加入任何喜愛歌曲'
+              : activeTab === 'history'
+              ? '目前暫無播放過的歷史歌曲'
+              : '沒有找到相符的曲目'}
           </h3>
           <p className="text-xs text-neutral-400 max-w-sm mb-5">
-            {showFavoritesOnly
+            {activeTab === 'favorites'
               ? '點選任何歌曲上的愛心圖示，即可將其收納至此處。'
+              : activeTab === 'history'
+              ? '只要開始播放任何歌曲，系統就會自動將其加入此暫存清單，並自動快取離線檔案。'
               : '試試搜尋上方推薦的藝人（周杰倫、周深、張雨生、毛不易），或更換關鍵字。'}
           </p>
         </div>
@@ -269,8 +317,14 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ showFavoritesOnly 
                   </div>
                 )}
 
-                {/* 來源標記 (Apple 磨砂膠囊標記) */}
-                <div className="absolute top-2 right-2">
+                {/* 來源與離線標記 (Apple 磨砂膠囊標記) */}
+                <div className="absolute top-2 right-2 flex items-center gap-1">
+                  {track.isOfflineAvailable && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/80 text-[9px] font-bold text-black shadow flex items-center gap-0.5" title="離線可播放">
+                      <HardDriveDownload className="w-2.5 h-2.5" />
+                      <span>離線</span>
+                    </span>
+                  )}
                   {isYt ? (
                     <span className="px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-medium text-white flex items-center gap-1 border border-white/10 shadow">
                       <YoutubeIcon className="w-2.5 h-2.5 text-[#fa2d48]" />
@@ -324,6 +378,28 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ showFavoritesOnly 
                 </div>
 
                 <div className="flex items-center gap-1">
+                  {/* 若在歷史分頁，提供手動離線快取或移除歷史按鈕 */}
+                  {activeTab === 'history' ? (
+                    <>
+                      {track.source !== 'youtube' && !track.isOfflineAvailable && (
+                        <button
+                          onClick={() => cacheTrackAudio(track)}
+                          className="p-1.5 rounded-full text-neutral-400 hover:text-emerald-400 hover:bg-white/10 transition-all cursor-pointer"
+                          title="手動下載離線快取"
+                        >
+                          <HardDriveDownload className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => deleteHistoryTrack(track.id)}
+                        className="p-1.5 rounded-full text-neutral-400 hover:text-rose-400 hover:bg-white/10 transition-all cursor-pointer"
+                        title="從歷史記錄移除"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  ) : null}
+
                   {/* 加入待播清單 */}
                   <button
                     onClick={() => addToQueue(track)}
