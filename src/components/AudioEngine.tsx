@@ -101,7 +101,7 @@ export const AudioEngine: React.FC = () => {
         console.warn('HTML Audio 串流載入錯誤:', e);
         reportFromEngine('audio', 'onError', '此曲目音訊暫時無法播放');
       }}
-      className="hidden"
+      className="opacity-0 pointer-events-none absolute -left-[9999px] w-0 h-0"
     />
   );
 };

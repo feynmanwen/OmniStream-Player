@@ -8,6 +8,7 @@ import {
 import { usePlayerStore } from '../store/usePlayerStore';
 import { ExternalLink, Minimize2, Maximize2 } from 'lucide-react';
 import { YoutubeIcon } from './icons/YoutubeIcon';
+import { startSilentAudioKeepAlive, stopSilentAudioKeepAlive } from '../utils/silentAudio';
 
 declare global {
   interface Window {
@@ -101,18 +102,22 @@ export const YouTubeEngine: React.FC = () => {
           const state = event.data;
           // 1: PLAYING, 2: PAUSED, 0: ENDED, 3: BUFFERING
           if (state === 1) {
+            startSilentAudioKeepAlive();
             reportFromEngine('youtube', 'onPlayState', true);
             startProgressPoll();
           } else if (state === 2) {
+            stopSilentAudioKeepAlive();
             reportFromEngine('youtube', 'onPlayState', false);
             stopProgressPoll();
           } else if (state === 0) {
+            stopSilentAudioKeepAlive();
             stopProgressPoll();
             reportFromEngine('youtube', 'onPlayState', false);
             reportFromEngine('youtube', 'onEnded');
           }
         },
         onError: (event: any) => {
+          stopSilentAudioKeepAlive();
           stopProgressPoll();
           reportFromEngine('youtube', 'onPlayState', false);
           const code = event.data;
@@ -149,11 +154,13 @@ export const YouTubeEngine: React.FC = () => {
         }
       },
       pause: () => {
+        stopSilentAudioKeepAlive();
         if (isReadyRef.current && playerRef.current) {
           playerRef.current.pauseVideo();
         }
       },
       stop: () => {
+        stopSilentAudioKeepAlive();
         stopProgressPoll();
         if (isReadyRef.current && playerRef.current) {
           try {
