@@ -1,8 +1,8 @@
-const CACHE_NAME = 'omnistream-v1';
+const CACHE_NAME = 'omnistream-v2';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json'
+  './',
+  './index.html',
+  './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
