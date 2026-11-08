@@ -8,6 +8,8 @@ import {
   Sparkles,
   History,
   Library,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { FEATURED_ARTISTS, POPULAR_GENRES } from '../services/searchService';
@@ -25,6 +27,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
 }) => {
   const [inputValue, setInputValue] = useState('');
+  const [isListening, setIsListening] = useState(false);
+
   const {
     isSearching,
     searchAndAutoplay,
@@ -39,6 +43,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     fullOnly,
     setFullOnly,
     searchQuery,
+    showToast,
   } = usePlayerStore();
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -53,6 +58,68 @@ export const Navbar: React.FC<NavbarProps> = ({
     setInputValue(artistName);
     setActiveTab('search');
     searchAndAutoplay(artistName);
+  };
+
+  const toggleVoiceSearch = () => {
+    // 檢查瀏覽器是否支援語音辨識 Web Speech API
+    const SpeechRecognition =
+      (window as unknown as { SpeechRecognition?: any }).SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: any }).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      showToast('您的瀏覽器不支援語音辨識（建議使用 Chrome 或 Safari）');
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'zh-TW';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        showToast('請說出歌曲或歌手名稱...');
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript) {
+          setInputValue(transcript);
+          setActiveTab('search');
+          searchAndAutoplay(transcript);
+          showToast(`語音辨識成功：「${transcript}」`);
+        }
+        setIsListening(false);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('語音辨識錯誤:', event.error);
+        if (event.error === 'not-allowed') {
+          showToast('請允許麥克風權限以使用語音搜尋');
+        } else if (event.error === 'no-speech') {
+          showToast('未偵測到聲音，請再試一次');
+        } else {
+          showToast('語音辨識失敗，請重試');
+        }
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.warn('啟動語音辨識失敗:', err);
+      setIsListening(false);
+      showToast('無法啟動麥克風');
+    }
   };
 
   return (
@@ -93,16 +160,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="搜尋歌曲、藝人、專輯 (Enter 即動播)..."
-                className="w-full pl-10 pr-20 py-2 bg-white/[0.08] hover:bg-white/[0.11] focus:bg-white/[0.14] text-[13px] text-white placeholder-neutral-400 rounded-full border border-white/[0.08] focus:border-white/20 transition-all outline-none"
+                className="w-full pl-10 pr-28 py-2 bg-white/[0.08] hover:bg-white/[0.11] focus:bg-white/[0.14] text-[13px] text-white placeholder-neutral-400 rounded-full border border-white/[0.08] focus:border-white/20 transition-all outline-none"
               />
-              <button
-                type="submit"
-                disabled={isSearching || !inputValue.trim()}
-                className="absolute right-1 px-3 py-1 text-xs font-medium rounded-full bg-[#fa2d48] hover:bg-[#e0233d] active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white transition-all shadow-sm flex items-center gap-1 cursor-pointer"
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>動播</span>
-              </button>
+              <div className="absolute right-1 flex items-center gap-1">
+                {/* 語音搜尋按鈕 */}
+                <button
+                  type="button"
+                  onClick={toggleVoiceSearch}
+                  className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                    isListening
+                      ? 'bg-rose-500 text-white animate-pulse shadow-md shadow-rose-500/50'
+                      : 'text-neutral-400 hover:text-white hover:bg-white/10'
+                  }`}
+                  title={isListening ? '正在聆聽中... (點擊停止)' : '語音搜尋'}
+                >
+                  {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSearching || !inputValue.trim()}
+                  className="px-3 py-1 text-xs font-medium rounded-full bg-[#fa2d48] hover:bg-[#e0233d] active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>動播</span>
+                </button>
+              </div>
             </div>
           </form>
 
@@ -203,7 +285,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* 手機版專屬第二行：寬敞全幅搜尋欄 (打字清晰不擁擠) */}
+        {/* 手機版專屬第二行：寬敞全幅搜尋欄 (打字清晰不擁擠 + 語音搜尋) */}
         <div className="md:hidden w-full">
           <form onSubmit={handleSearchSubmit} className="w-full relative">
             <div className="relative flex items-center w-full shadow-inner">
@@ -219,16 +301,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="搜尋歌曲、藝人或專輯名稱..."
-                className="w-full pl-10 pr-22 py-2.5 bg-white/[0.08] focus:bg-white/[0.14] text-[14px] text-white placeholder-neutral-400 rounded-2xl border border-white/[0.12] focus:border-[#fa2d48]/50 transition-all outline-none"
+                className="w-full pl-10 pr-28 py-2.5 bg-white/[0.08] focus:bg-white/[0.14] text-[14px] text-white placeholder-neutral-400 rounded-2xl border border-white/[0.12] focus:border-[#fa2d48]/50 transition-all outline-none"
               />
-              <button
-                type="submit"
-                disabled={isSearching || !inputValue.trim()}
-                className="absolute right-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-[#fa2d48] hover:bg-[#e0233d] active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white transition-all shadow-md flex items-center gap-1 cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>動播</span>
-              </button>
+              <div className="absolute right-1.5 flex items-center gap-1.5">
+                {/* 語音搜尋按鈕 (手機版加大方便點擊) */}
+                <button
+                  type="button"
+                  onClick={toggleVoiceSearch}
+                  className={`p-2 rounded-xl transition-all cursor-pointer ${
+                    isListening
+                      ? 'bg-rose-500 text-white animate-pulse shadow-md shadow-rose-500/50'
+                      : 'text-neutral-400 hover:text-white hover:bg-white/10 active:scale-95'
+                  }`}
+                  title={isListening ? '正在聆聽中... (點擊停止)' : '語音搜尋'}
+                >
+                  {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSearching || !inputValue.trim()}
+                  className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-[#fa2d48] hover:bg-[#e0233d] active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white transition-all shadow-md flex items-center gap-1 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>動播</span>
+                </button>
+              </div>
             </div>
           </form>
         </div>
