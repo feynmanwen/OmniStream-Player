@@ -5,7 +5,6 @@ import {
   Music2,
   ListMusic,
   Heart,
-  Settings,
   Sparkles,
   History,
   Library,
@@ -39,12 +38,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     setIsQueueOpen,
     fullOnly,
     setFullOnly,
-    setIsSettingsOpen,
-    getYoutubeApiKey,
     searchQuery,
   } = usePlayerStore();
-
-  const hasYtKey = Boolean(getYoutubeApiKey());
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,20 +199,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden md:inline text-xs font-medium truncate max-w-[70px]">
                 {currentUser.displayName}
               </span>
-            </button>
-
-            {/* 設定按鈕 */}
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-2 rounded-full apple-pill text-neutral-400 hover:text-white transition-all relative cursor-pointer"
-              title={hasYtKey ? '設定 (YouTube 已啟用)' : '設定 (點擊填入金鑰)'}
-            >
-              <Settings className="w-4 h-4" />
-              {hasYtKey ? (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-400 rounded-full" />
-              ) : (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-              )}
             </button>
           </div>
         </div>
